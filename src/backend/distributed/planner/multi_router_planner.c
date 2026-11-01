@@ -401,6 +401,20 @@ AddPartitionKeyNotNullFilterToSelect(Query *subqery, bool
 		return;
 	}
 
+	/*
+	 * Defense in depth: if the SELECT does not project a partition-key Var at
+	 * all - e.g. the target is a single-shard distributed table with no
+	 * distribution column - there is nothing to filter on. Historically this
+	 * was guarded by Assert() only, which compiles out in release builds and
+	 * then crashes with a NULL deref (see #8959). Callers should gate on
+	 * HasDistributionKey() before invoking this, but we keep the runtime
+	 * check so a stray caller cannot segfault the coordinator.
+	 */
+	if (targetPartitionColumnVar == NULL)
+	{
+		return;
+	}
+
 	/* we should have found target partition column */
 	Assert(targetPartitionColumnVar != NULL);
 
